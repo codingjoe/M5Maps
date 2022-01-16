@@ -1,9 +1,10 @@
 #include <M5EPD.h>
 #include <Math.h>
 
-double longitude_deg = 12.450189;
-double latitude_deg = 62.316656;
+double longitude_deg;
+double latitude_deg;
 int max_zoom = 16;
+int min_zoom = 10;
 
 int x;
 int y;
@@ -16,24 +17,6 @@ int loop_delay = 100;
 
 M5EPD_Canvas canvas(&M5.EPD);
 
-uint16_t r16(fs::File &f)
-{
-  uint16_t result;
-  ((uint8_t *)&result)[0] = f.read(); // LSB
-  ((uint8_t *)&result)[1] = f.read(); // MSB
-  return result;
-}
-
-uint32_t r32(fs::File &f)
-{
-  uint32_t result;
-  ((uint8_t *)&result)[0] = f.read(); // LSB
-  ((uint8_t *)&result)[1] = f.read();
-  ((uint8_t *)&result)[2] = f.read();
-  ((uint8_t *)&result)[3] = f.read(); // MSB
-  return result;
-}
-
 void setup()
 {
   M5.begin(true, true, true, false, false);
@@ -42,50 +25,91 @@ void setup()
   canvas.createCanvas(540, 960);
   canvas.setTextSize(5);
 
-  calcPos();
 
-
+  getPosition();
 }
 
-void calcPos() {
+void getPosition() {
+  File longitude_file = SD.open("/longitude_deg", "r");
+  longitude_deg = atof(longitude_file.readString().c_str());
+  longitude_file.close();
+  
+  File latitude_file = SD.open("/latitude_deg", "r");
+  latitude_deg = atof(latitude_file.readString().c_str());
+  latitude_file.close();
+
+  Serial.println("Loading position: " + String(longitude_deg, 6) + "," + String(latitude_deg, 6));
+  
   double lat_rad = (latitude_deg * PI) / 180;
   double n = pow(2.0, z);
   x = (int) (n * ((longitude_deg + 180) / 360));
   y = (int) (n * (1 - (log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI)) / 2.0);
 }
 
+void setPosition() {
+  double n = pow(2.0, z);
+  longitude_deg = x / n * 360.0 - 180.0;
+  double lat_rad = atan(sinh(PI * (1 - 2 * y / n)));
+  latitude_deg = degrees(lat_rad);
+
+  Serial.println("Saving position: " + String(longitude_deg, 6) + "," + String(latitude_deg, 6));
+  
+  File longitude_file = SD.open("/longitude_deg", FILE_WRITE);
+  longitude_file.print(String(longitude_deg, 6));
+  longitude_file.close();
+  
+  File latitude_file = SD.open("/latitude_deg", FILE_WRITE);
+  latitude_file.print(String(latitude_deg, 6));
+  latitude_file.close();
+}
+
+double calcMetersPerPixel() {
+  double C = 2 * PI * 6378137.0;
+  return (C * cos(latitude_deg)) / pow(2, (z + 8));
+}
+
 
 void drawTiles() {
   inactive = 0;
-  M5.EPD.Clear(true);
+  setPosition();
   canvas.fillCanvas(0);
   int row;
   int col;
   Serial.println("Loading tiles:");
-  for (row = 0; row < 4; row++) {
-    for (col = 0; col < 3; col++) {
+  for (row = -2; row < 2; row++) {
+    for (col = -1; col < 1; col++) {
       String url = "/" + String(z) + "/" + String(x + col) + "/" + String(y + row) + ".png";
       Serial.println("===> " + url);
-      canvas.drawPngFile(SD, url.c_str() , 256 * col, 256 * row);
+      canvas.drawPngFile(SD, url.c_str() , 256 * (col + 1), 256 * (row + 2));
     }
   }
+
+  drawLegend();
   canvas.pushCanvas(0 , 0 , UPDATE_MODE_GC16);
   Serial.println("Done");
+}
+
+void drawLegend() {
+  double height = 1000 / calcMetersPerPixel();
+  Serial.println(height);
+  for (double y = 0; y <  960; y = y + 2 * height) {
+    canvas.fillRect(512, (int) y, 540 - 512, (int) height, 15);
+  }
 }
 
 
 void zoom() {
 
-  if (M5.BtnL.wasPressed() and z != 19) {
+  if (M5.BtnR.wasPressed() and z != max_zoom) {
     z++;
     Serial.println("Zoom out to " + String(z));
-    calcPos();
+    getPosition();
     drawTiles();
   }
-  if (M5.BtnR.wasPressed() and z != 0) {
+  if (M5.BtnL.wasPressed() and z != min_zoom) {
     z--;
     Serial.println("Zoom in to " + String(z));
-    calcPos();
+    getPosition();
     drawTiles();
 
 

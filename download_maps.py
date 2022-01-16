@@ -13,18 +13,26 @@ def deg2num(lat_deg, lon_deg, zoom):
     return x, y
 
 
-def main(lon, lat, zoom=14, rad=10):
+def main(lon, lat, path):
     """
     Download maps from the command line.
     """
-    x, y = deg2num(float(lat), float(lon), int(zoom))
-    z = int(zoom)
-    print("Downloading tiles...", end="")
-    for i in range(-rad, rad + 1):
-        os.makedirs(f"{z}/{x + i}/", exist_ok=True)
-        for j in range(-rad, rad + 1):
-            print(".", end="")
-            urllib.request.urlretrieve(f"https://a.tile.opentopomap.org/{z}/{x + i}/{y + j}.png", f"{z}/{x + i}/{y + j}.png")
+
+
+    print("Downloading tiles...")
+    for rad in range(5):
+        z = rad + 12
+        x, y = deg2num(float(lat), float(lon), z)
+        for i in range(-(2 ** rad), (2 ** rad) + 1):
+            full_path = os.path.join(path, f"{z}/{x + i}/")
+            os.makedirs(full_path, exist_ok=True)
+            for j in range(-(2 ** rad), (2 ** rad) + 1):
+                file_path = os.path.join(full_path, f"{y + j}.png")
+                if os.path.exists(file_path):
+                    print(f"File already exists: {file_path}")
+                else:
+                    print(f"https://a.tile.opentopomap.org/{z}/{x + i}/{y + j}.png -> {file_path}")
+                    urllib.request.urlretrieve(f"https://a.tile.opentopomap.org/{z}/{x + i}/{y + j}.png", file_path)
     print("\nDone.")
 
 
