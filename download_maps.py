@@ -18,7 +18,6 @@ def main(lon, lat, path):
     Download maps from the command line.
     """
 
-
     print("Downloading tiles...")
     for rad in range(5):
         z = rad + 12
