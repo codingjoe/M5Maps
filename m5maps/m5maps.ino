@@ -63,6 +63,25 @@ uint32_t r32(File &f)
 }
 
 
+const uint8_t rgbGrayScaleMap[] = {
+    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+    14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+    13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+    11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
+    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// http://www.ece.ualberta.ca/~elliott/ee552/studentAppNotes/2003_w/misc/bmp_file_format/bmp_file_format.htm
 bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
 {
   if ((x >= canvas.width()) || (y >= canvas.height()))
@@ -92,11 +111,25 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
 
     if ((r16(bmpFS) == 1) && (r16(bmpFS) == 4) && (r32(bmpFS) == 0))
     {
+      r32(bmpFS); // ImageSize
+      r32(bmpFS); // XpixelsPerM
+      r32(bmpFS); // YpixelsPerM
+      r32(bmpFS); // ImportantColors
+      uint32_t NumColors = r32(bmpFS);
+      uint8_t colorTable[NumColors];
+      for (int i = 0; i < NumColors; i++) {
+        uint8_t r = bmpFS.read();
+        uint8_t g = bmpFS.read();
+        uint8_t b = bmpFS.read();
+        uint8_t a = bmpFS.read();
+        colorTable[i] = rgbGrayScaleMap[(r * 38 + g * 75 + b * 15) >> 7];
+      }
+      
       y += h - 1;
 
       bmpFS.seek(seekOffset);
-      uint8_t lineBuffer[w / 2];
-
+      uint16_t padding = (4 - (w & 3)) & 3;
+      uint8_t lineBuffer[w / 2 + padding];
 
       for (row = 0; row < h; row++)
       {
@@ -107,8 +140,8 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
           c = *bptr++;
           uint8_t a = (c >> 4) & 0xF;
           uint8_t b = c & 0xF;
-          canvas.drawPixel(x + col, y, a);
-          canvas.drawPixel(x + col + 1, y, b);
+          canvas.drawPixel(x + col, y, colorTable[a]);
+          canvas.drawPixel(x + col + 1, y, colorTable[b]);
         }
 
         // Push the pixel row to screen, pushImage will crop the line if needed
@@ -168,27 +201,27 @@ double calcMetersPerPixel() {
 
 void drawTiles() {
   inactive = 0;
-  setPosition();
   canvas.fillCanvas(0);
   int row;
   int col;
+  bool success = true;
   Serial.println("Loading tiles:");
   for (row = -2; row < 2; row++) {
     for (col = -1; col < 1; col++) {
       String url = "/" + String(z) + "/" + String((int) x + col) + "/" + String((int) y + row) + ".bmp";
       Serial.println("===> " + url);
-      drawBmpFile(SD, url.c_str() , 256 * (col + 1), 256 * (row + 2));
+      success = success and (bool) drawBmpFile(SD, url.c_str() , 256 * (col + 1), 256 * (row + 2));
     }
   }
 
   drawLegend();
   canvas.pushCanvas(0 , 0 , UPDATE_MODE_GC16);
+  setPosition();
   Serial.println("Done");
 }
 
 void drawLegend() {
   double height = 1000 / calcMetersPerPixel();
-  Serial.println(height);
   for (double ly = 0; ly <  960; ly = ly + 2 * height) {
     canvas.fillRect(512, (int) ly, 540 - 512, (int) height, 15);
   }
@@ -201,13 +234,20 @@ void zoom() {
     z++;
     Serial.println("Zoom out to " + String(z));
     getPosition();
-    drawTiles();
+    if (!drawTiles()) {
+      z--;
+      getPosition();
+    }
+    
   }
   if (M5.BtnL.wasPressed() and z != min_zoom) {
     z--;
     Serial.println("Zoom in to " + String(z));
     getPosition();
-    drawTiles();
+    if (!drawTiles()) {
+      z++;
+      getPosition();
+    }
 
 
   }
@@ -238,7 +278,6 @@ void touchInput () {
           x++;
         }
         drawTiles();
-        Serial.printf("Finger ID:%d-->X: %d*C  Y: %d  Size: %d\r\n", FingerItem.id, FingerItem.x, FingerItem.y , FingerItem.size);
       }
     }
   }
