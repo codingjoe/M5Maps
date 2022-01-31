@@ -64,22 +64,32 @@ uint32_t r32(File &f)
 
 
 const uint8_t rgbGrayScaleMap[] = {
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
-    13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
-    12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-    11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
-    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+  13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+  11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
+  10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+  7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+  4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+
+uint8_t rgb2Grayscale(const uint8_t r, const uint8_t g, const uint8_t b) {
+  return rgbGrayScaleMap[(r * 38 + g * 75 + b * 15) >> 7];
+}
+
+const uint8_t BI_RGB = 0;
+const uint8_t BI_RLE8 = 1;
+const uint8_t BI_RLE4 = 2;
 
 // http://www.ece.ualberta.ca/~elliott/ee552/studentAppNotes/2003_w/misc/bmp_file_format/bmp_file_format.htm
 bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
@@ -96,63 +106,132 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
     return 0;
   }
 
-  uint32_t seekOffset;
+  uint32_t dataOffset;
   uint16_t w, h, row, col;
-  uint8_t c;
 
-  if (r16(bmpFS) == 0x4D42)
+  if (r16(bmpFS) == 0x4D42) // Signature = BM
   {
-    r32(bmpFS);
-    r32(bmpFS);
-    seekOffset = r32(bmpFS);
-    r32(bmpFS);
+    r32(bmpFS); // FileSize
+    r32(bmpFS); // reserved
+    dataOffset = r32(bmpFS);
+    r32(bmpFS); // size
     w = r32(bmpFS);
     h = r32(bmpFS);
 
-    if ((r16(bmpFS) == 1) && (r16(bmpFS) == 4) && (r32(bmpFS) == 0))
+    uint16_t planes = r16(bmpFS);
+    uint16_t bitsPerPixel = r16(bmpFS);
+    float bytesPerPixel = bitsPerPixel / 8.0;
+    uint8_t compression = r32(bmpFS);
+    r32(bmpFS); // ImageSize
+    r32(bmpFS); // XpixelsPerM
+    r32(bmpFS); // YpixelsPerM
+    r32(bmpFS); // ImportantColors
+
+    if ((planes == 1))
     {
-      r32(bmpFS); // ImageSize
-      r32(bmpFS); // XpixelsPerM
-      r32(bmpFS); // YpixelsPerM
-      r32(bmpFS); // ImportantColors
-      uint32_t NumColors = r32(bmpFS);
-      uint8_t colorTable[NumColors];
-      for (int i = 0; i < NumColors; i++) {
-        uint8_t r = bmpFS.read();
-        uint8_t g = bmpFS.read();
-        uint8_t b = bmpFS.read();
-        uint8_t a = bmpFS.read();
-        colorTable[i] = rgbGrayScaleMap[(r * 38 + g * 75 + b * 15) >> 7];
-      }
-      
-      y += h - 1;
 
-      bmpFS.seek(seekOffset);
-      uint16_t padding = (4 - (w & 3)) & 3;
-      uint8_t lineBuffer[w / 2 + padding];
+      if (bitsPerPixel <= 8) {
 
-      for (row = 0; row < h; row++)
-      {
-        bmpFS.read(lineBuffer, sizeof(lineBuffer));
-        uint8_t *bptr = lineBuffer;
-        for (col = 0; col < w; col = col + 2)
-        {
-          c = *bptr++;
-          uint8_t a = (c >> 4) & 0xF;
-          uint8_t b = c & 0xF;
-          canvas.drawPixel(x + col, y, colorTable[a]);
-          canvas.drawPixel(x + col + 1, y, colorTable[b]);
+
+        uint32_t numColors = r32(bmpFS);
+
+        Serial.printf("BMP %dbit %d colors (compression=%d)\r\n",  bitsPerPixel, numColors, compression);
+        uint8_t colorTable[numColors];
+        for (int i = 0; i < numColors; i++) {
+          uint8_t r = bmpFS.read();
+          uint8_t g = bmpFS.read();
+          uint8_t b = bmpFS.read();
+          uint8_t a = bmpFS.read();
+          colorTable[i] = rgb2Grayscale(r, g, b);
+          if ((r != 0) || (g != 0) || (b != 0) || (a != 0)) {
+            Serial.printf("%d => rgba(%d, %d, %d, %d)\r\n", i, r, g, b, a);
+          }
         }
 
-        // Push the pixel row to screen, pushImage will crop the line if needed
-        // y is decremented as the BMP image is drawn bottom up
-        y--;
+        y += h - 1;
+
+        bmpFS.seek(dataOffset);
+
+        uint16_t padding = (4 - ((int) (w * bytesPerPixel) & 3)) & 3;
+        uint8_t lineBuffer[(int) (w * bytesPerPixel) + padding];
+
+
+        uint8_t increment = 1 / bytesPerPixel;
+
+
+        for (row = 0; row < h; row++)
+        {
+          bmpFS.read(lineBuffer, sizeof(lineBuffer));
+          uint8_t *bptr = lineBuffer;
+          for (col = 0; col < w; col += increment)
+          {
+            if ((bitsPerPixel == 4) || (compression != BI_RGB)) {
+              uint8_t a;
+              uint8_t b;
+
+              if (bitsPerPixel == 4) {
+                uint8_t c = *bptr++;
+                a = (c >> 4) & 0xF;
+                b = c & 0xF;
+              } else {
+                a = *bptr++;
+                b = *bptr++;
+              }
+
+              if (compression == BI_RGB) {
+                canvas.drawPixel(x + col, y, colorTable[a]);
+                canvas.drawPixel(x + col + 1, y, colorTable[b]);
+                increment = 2;
+              } else {
+                for (uint8_t  rle_col = 0; rle_col < a; rle_col++) {
+                  canvas.drawPixel(x + col + rle_col, y, colorTable[b]);
+                }
+                if ((a == 0) && (b == 0)) {
+                  break;
+                } else {
+                  increment = a;
+                }
+                
+              }
+            }
+          }
+
+          // Push the pixel row to screen, pushImage will crop the line if needed
+          // y is decremented as the BMP image is drawn bottom up
+          y--;
+        }
+      } else {
+        y += h - 1;
+
+        bmpFS.seek(dataOffset);
+
+        uint16_t padding = (4 - ((int) (w * bytesPerPixel) & 3)) & 3;
+        uint8_t lineBuffer[(int) (w * bytesPerPixel) + padding];
+
+        for (row = 0; row < h; row++)
+        {
+          bmpFS.read(lineBuffer, sizeof(lineBuffer));
+          uint8_t *bptr = lineBuffer;
+          for (col = 0; col < w; col++)
+          {
+            uint8_t b = *bptr++;
+            uint8_t g = *bptr++;
+            uint8_t r = *bptr++;
+            canvas.drawPixel(x + col, y, rgb2Grayscale(r, g, b));
+          }
+
+          // Push the pixel row to screen, pushImage will crop the line if needed
+          // y is decremented as the BMP image is drawn bottom up
+          y--;
+        }
+
       }
       log_d("Loaded in %lu ms", millis() - startTime);
     }
     else
     {
       log_e("BMP format not recognized.");
+      bmpFS.close();
       return 0;
     }
 
@@ -199,7 +278,7 @@ double calcMetersPerPixel() {
 }
 
 
-void drawTiles() {
+bool drawTiles() {
   inactive = 0;
   canvas.fillCanvas(0);
   int row;
@@ -211,13 +290,16 @@ void drawTiles() {
       String url = "/" + String(z) + "/" + String((int) x + col) + "/" + String((int) y + row) + ".bmp";
       Serial.println("===> " + url);
       success = success and (bool) drawBmpFile(SD, url.c_str() , 256 * (col + 1), 256 * (row + 2));
+      break;
     }
+    break;
   }
 
   drawLegend();
   canvas.pushCanvas(0 , 0 , UPDATE_MODE_GC16);
   setPosition();
   Serial.println("Done");
+  return success;
 }
 
 void drawLegend() {
@@ -238,7 +320,7 @@ void zoom() {
       z--;
       getPosition();
     }
-    
+
   }
   if (M5.BtnL.wasPressed() and z != min_zoom) {
     z--;
