@@ -66,7 +66,7 @@ def calc_tiles(lon, lat):
 def main(lon, lat, dest, tile_srv):
     dest = Path(dest)
     with open(dest / "zoom", "w") as f:
-        f.write("14")
+        f.write("13")
     with open(dest / "longitude_deg", "w") as f:
         f.write(str(lon))
     with open(dest / "latitude_deg", "w") as f:
