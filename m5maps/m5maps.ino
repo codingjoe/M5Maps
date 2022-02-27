@@ -37,6 +37,7 @@ void setup()
   File zoom_file = SD.open("/zoom", "r");
   z = atoi(zoom_file.readString().c_str());
   zoom_file.close();
+  z = 14;
 
   Serial.println("Loading position: " + String(longitude_deg, 6) + "," + String(latitude_deg, 6) + "," + String(z));
 
@@ -126,16 +127,14 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
     r32(bmpFS); // XpixelsPerM
     r32(bmpFS); // YpixelsPerM
     r32(bmpFS); // ImportantColors
+    uint32_t numColors = r32(bmpFS);
 
-    if ((planes == 1))
+    Serial.printf("BMP %dbit %d colors (compression=%d)\r\n",  bitsPerPixel, numColors, compression);
+
+    if ((planes == 1) && (compression == BI_RGB))
     {
 
       if (bitsPerPixel <= 8) {
-
-
-        uint32_t numColors = r32(bmpFS);
-
-        Serial.printf("BMP %dbit %d colors (compression=%d)\r\n",  bitsPerPixel, numColors, compression);
         uint8_t colorTable[numColors];
         for (int i = 0; i < numColors; i++) {
           uint8_t r = bmpFS.read();
@@ -143,9 +142,6 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
           uint8_t b = bmpFS.read();
           uint8_t a = bmpFS.read();
           colorTable[i] = rgb2Grayscale(r, g, b);
-          if ((r != 0) || (g != 0) || (b != 0) || (a != 0)) {
-            Serial.printf("%d => rgba(%d, %d, %d, %d)\r\n", i, r, g, b, a);
-          }
         }
 
         y += h - 1;
@@ -165,34 +161,13 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
           uint8_t *bptr = lineBuffer;
           for (col = 0; col < w; col += increment)
           {
-            if ((bitsPerPixel == 4) || (compression != BI_RGB)) {
-              uint8_t a;
-              uint8_t b;
-
-              if (bitsPerPixel == 4) {
-                uint8_t c = *bptr++;
-                a = (c >> 4) & 0xF;
-                b = c & 0xF;
-              } else {
-                a = *bptr++;
-                b = *bptr++;
-              }
-
-              if (compression == BI_RGB) {
-                canvas.drawPixel(x + col, y, colorTable[a]);
-                canvas.drawPixel(x + col + 1, y, colorTable[b]);
-                increment = 2;
-              } else {
-                for (uint8_t  rle_col = 0; rle_col < a; rle_col++) {
-                  canvas.drawPixel(x + col + rle_col, y, colorTable[b]);
-                }
-                if ((a == 0) && (b == 0)) {
-                  break;
-                } else {
-                  increment = a;
-                }
-                
-              }
+            if (bitsPerPixel == 4) {
+              uint8_t c = *bptr++;
+              uint8_t a = (c >> 4) & 0xF;
+              uint8_t b = c & 0xF;
+              canvas.drawPixel(x + col, y, colorTable[a]);
+              canvas.drawPixel(x + col + 1, y, colorTable[b]);
+              increment = 2;
             }
           }
 
@@ -230,7 +205,7 @@ bool drawBmpFile(FS &fs, const char *path, uint16_t x, uint16_t y)
     }
     else
     {
-      log_e("BMP format not recognized.");
+      log_e("BMP format not supported.");
       bmpFS.close();
       return 0;
     }
@@ -290,9 +265,11 @@ bool drawTiles() {
       String url = "/" + String(z) + "/" + String((int) x + col) + "/" + String((int) y + row) + ".bmp";
       Serial.println("===> " + url);
       success = success and (bool) drawBmpFile(SD, url.c_str() , 256 * (col + 1), 256 * (row + 2));
-      break;
     }
-    break;
+  }
+
+  if (!success) {
+    return success;
   }
 
   drawLegend();
@@ -349,17 +326,25 @@ void touchInput () {
       if ((point[0] != FingerItem.x) || (point[1] != FingerItem.y)) {
         point[0] = FingerItem.x;
         point[1] = FingerItem.y;
+        int xShift;
+        int yShift;
         if (FingerItem.y < 960 / 3) {
-          y--;
+          yShift = -1;
         } else if (FingerItem.y > 960 / 3 * 2) {
-          y++;
+          yShift = 1;
         }
         if (FingerItem.x < 540 /  3) {
-          x--;
+          xShift = -1;
         } else if (FingerItem.x > 540 / 3 * 2) {
-          x++;
+          xShift = 1;
         }
-        drawTiles();
+        x += xShift;
+        y += yShift;
+        if (!drawTiles()) {
+          x -= xShift;
+          y -= yShift;
+          getPosition();
+        }
       }
     }
   }
