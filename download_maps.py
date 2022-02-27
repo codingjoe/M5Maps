@@ -4,7 +4,6 @@ import math
 import os
 import random
 import socket
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -58,10 +57,12 @@ def calc_tiles(lon, lat):
 
 
 @click.command()
-@click.argument('lon', nargs=1, type=float)
-@click.argument('lat', nargs=1, type=float)
-@click.argument('dest', nargs=1, type=click.Path(file_okay=False, dir_okay=True, writable=True))
-@click.argument('TILE_SRV', nargs=-1, type=str, required=True)
+@click.argument("lon", nargs=1, type=float)
+@click.argument("lat", nargs=1, type=float)
+@click.argument(
+    "dest", nargs=1, type=click.Path(file_okay=False, dir_okay=True, writable=True)
+)
+@click.argument("TILE_SRV", nargs=-1, type=str, required=True)
 def main(lon, lat, dest, tile_srv):
     dest = Path(dest)
     with open(dest / "zoom", "w") as f:
@@ -75,10 +76,17 @@ def main(lon, lat, dest, tile_srv):
     tiles = list(calc_tiles(lon, lat))
 
     with concurrent.futures.ThreadPoolExecutor(len(tile_srv)) as executor:
-        list(tqdm(executor.map(
-            lambda args: download_file(*args),
-                ((tile_srv, x, y, z, tmp_path) for x, y, z in tiles),
-        ), total=len(tiles), unit="tiles", desc="Downloading tiles"))
+        list(
+            tqdm(
+                executor.map(
+                    lambda args: download_file(*args),
+                    ((tile_srv, x, y, z, tmp_path) for x, y, z in tiles),
+                ),
+                total=len(tiles),
+                unit="tiles",
+                desc="Downloading tiles",
+            )
+        )
 
     cmd = f"mogrify -define bmp:format=bmp3 -type Grayscale -colors 16 -compress none -format bmp {tmp_path / '*' / '*' / '*.png'}"
     print(f"Converting to 4bit 16 color bitmaps: {cmd}")
