@@ -49,7 +49,7 @@ def download_file(url_tmpls, x, y, z, root_path):
 
 def calc_tiles(lon, lat):
     for rad in range(1, 5):
-        z = rad + 12
+        z = rad + 11
         x, y = deg2num(lat, lon, z)
         for i in range(-(2**rad), (2**rad) + 1):
             for j in range(-(2**rad), (2**rad) + 1):
@@ -66,7 +66,7 @@ def calc_tiles(lon, lat):
 def main(lon, lat, dest, tile_srv):
     dest = Path(dest)
     with open(dest / "zoom", "w") as f:
-        f.write("13")
+        f.write("12")
     with open(dest / "longitude_deg", "w") as f:
         f.write(str(lon))
     with open(dest / "latitude_deg", "w") as f:
@@ -89,10 +89,10 @@ def main(lon, lat, dest, tile_srv):
         )
 
     cmd = f"mogrify -define bmp:format=bmp3 -type Grayscale -colors 16 -compress none -format bmp {tmp_path / '*' / '*' / '*.png'}"
-    print(f"Converting to 4bit 16 color bitmaps: {cmd}")
+    print(f"Converting to 4bit 16 color bitmaps...")
     os.system(cmd)
     cmd = f"rsync -a --prune-empty-dirs --include '*/' --include '*.bmp' --exclude '*' '{tmp_path}{os.sep}' '{dest}'"
-    print(f"Coping to SD card: {cmd}")
+    print(f"Coping to SD card...")
     os.system(cmd)
 
     print("\nDone.")
