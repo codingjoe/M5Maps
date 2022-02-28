@@ -37,7 +37,6 @@ void setup()
   File zoom_file = SD.open("/zoom", "r");
   z = atoi(zoom_file.readString().c_str());
   zoom_file.close();
-  z = 14;
 
   Serial.println("Loading position: " + String(longitude_deg, 6) + "," + String(latitude_deg, 6) + "," + String(z));
 
@@ -326,8 +325,8 @@ void touchInput () {
       if ((point[0] != FingerItem.x) || (point[1] != FingerItem.y)) {
         point[0] = FingerItem.x;
         point[1] = FingerItem.y;
-        int xShift;
-        int yShift;
+        int xShift = 0;
+        int yShift = 0;
         if (FingerItem.y < 960 / 3) {
           yShift = -1;
         } else if (FingerItem.y > 960 / 3 * 2) {
