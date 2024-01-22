@@ -1,5 +1,9 @@
 # M5Maps
-Map software for the M5 Paper ESP32 eInk development board
+
+
+![IMG_20220228_164828](https://user-images.githubusercontent.com/1772890/206997306-7191108e-2354-4826-80c3-376ca505c70c.jpg)
+
+Map software for the M5 Paper ESP32 eInk development board.
 
 ### Setup
 
